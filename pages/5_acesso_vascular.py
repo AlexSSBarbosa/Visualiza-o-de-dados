@@ -8,26 +8,25 @@ st.set_page_config(page_title="Influência do Acesso Vascular Inicial", layout="
 st.markdown("# 5. O Acesso Vascular Inicial Influencia no Tempo de Espera para FAV?")
 st.markdown("### Pacientes em Diálise Crônica - Porto Alegre (2015–2024)")
 
-# --- Filtros Globais na Sidebar ---
+# --- Filtros globais na sidebar ---
 st.sidebar.header("Filtros Globais")
 
-# Carrega dados e opções de filtros
 df_raw, opcoes_acesso, anos_disponiveis, meses_disponiveis = load_and_filter_data()
 
-# Tipo de acesso
+# Filtro: Tipo de Acesso Vascular Inicial
 filtros_acesso = st.sidebar.multiselect(
     "Tipo de Acesso Vascular Inicial",
     options=opcoes_acesso,
-    default=[a for a in opcoes_acesso if "Fístula" in a]
+    default=opcoes_acesso
 )
 
-# Crônicos
+# Filtro: Crônico
 filtro_cronico = st.sidebar.checkbox(
     "Apenas pacientes crônicos (≥ 3 meses)",
     value=True
 )
 
-# Anos
+# Filtro: Anos
 ano_min, ano_max = min(anos_disponiveis), max(anos_disponiveis)
 ano_inicial, ano_final = st.sidebar.slider(
     "Intervalo de Anos da Criação da FAV",
@@ -36,7 +35,7 @@ ano_inicial, ano_final = st.sidebar.slider(
     value=(ano_min, ano_max)
 )
 
-# Meses
+# Filtro: Meses
 meses_selecionados = st.sidebar.multiselect(
     "Meses da Criação da FAV",
     options=meses_disponiveis,
@@ -44,7 +43,7 @@ meses_selecionados = st.sidebar.multiselect(
     default=meses_disponiveis
 )
 
-# --- Aplica os filtros ao carregar os dados filtrados ---
+# --- Aplicar filtros ---
 df, _, _, _ = load_and_filter_data(
     filtros_acesso=filtros_acesso,
     filtro_cronico_default=filtro_cronico,
@@ -70,31 +69,60 @@ contagem_acesso.columns = ['Acesso Inicial', 'Número de Pacientes']
 col1, col2 = st.columns(2)
 
 with col1:
-    st.markdown("#### Distribuição dos Tipos de Acesso Inicial")
+    st.markdown("#### 📊 Proporção de Pacientes por Tipo de Acesso Inicial")
+    st.write("""
+    Este gráfico de pizza mostra **quantos pacientes iniciaram com cada tipo de acesso vascular**.
+    A distribuição ajuda a entender **quais estratégias são mais utilizadas na prática clínica**:  
+    se mais pacientes iniciam com **cateteres temporários (urgência)** ou com **FAV (planejado)**.
+    """)
+
     fig_pie = px.pie(
         contagem_acesso,
         names='Acesso Inicial',
         values='Número de Pacientes',
         hole=0.3,
-        color_discrete_sequence=px.colors.sequential.Blues,
-        title="Proporção de Pacientes por Acesso Inicial"
+        title="Distribuição por Tipo de Acesso Inicial",
+        color_discrete_sequence=px.colors.qualitative.Set3  # cores distintas e profissionais
     )
+    fig_pie.update_traces(textposition='inside', textinfo='percent+label')
     st.plotly_chart(fig_pie, use_container_width=True)
 
 with col2:
-    st.markdown("#### Tempo de Espera por Tipo de Acesso")
+    st.markdown("#### ⏱️ Tempo de Espera por Tipo de Acesso Vascular Inicial")
+    st.write("""
+    Este gráfico compara a **distribuição do tempo de espera** até a confecção da FAV, agrupado por tipo de acesso inicial.
+
+    A **linha dentro da caixa** representa a **mediana**.  
+    Os **pontos** são pacientes individuais (outliers), e o formato da caixa mostra a **variação dos tempos**.
+
+    É útil para identificar se pacientes com **cateteres** esperam mais que os com **FAV desde o início**.
+    """)
+
+    ordem_acessos = (
+        df.groupby('ACESSO_VASCULAR_INICIAL')['TEMPO_ESPERA_DIAS']
+        .median()
+        .sort_values(ascending=False)
+        .index.tolist()
+    )
+
     fig_box = px.box(
         df,
         x='ACESSO_VASCULAR_INICIAL',
         y='TEMPO_ESPERA_DIAS',
+        points='outliers',
         color='ACESSO_VASCULAR_INICIAL',
-        points='all',
-        title="Distribuição do Tempo de Espera por Tipo de Acesso Inicial",
-        labels={'TEMPO_ESPERA_DIAS': 'Tempo de Espera (dias)'}
+        title="Tempo de Espera por Tipo de Acesso",
+        labels={
+            'TEMPO_ESPERA_DIAS': 'Tempo de Espera (dias)',
+            'ACESSO_VASCULAR_INICIAL': 'Tipo de Acesso'
+        },
+        color_discrete_sequence=px.colors.qualitative.Dark24,
+        category_orders={'ACESSO_VASCULAR_INICIAL': ordem_acessos}
     )
+    fig_box.update_layout(showlegend=False)
     st.plotly_chart(fig_box, use_container_width=True)
 
-# --- Tabela com estatísticas descritivas ---
+# --- Estatísticas descritivas ---
 st.markdown("### 📊 Estatísticas Descritivas por Tipo de Acesso Inicial")
 
 tabela_resumo = (
@@ -114,12 +142,13 @@ tabela_resumo = (
 
 st.dataframe(tabela_resumo)
 
-# --- Interpretação guiada ---
+# --- Interpretação ---
 st.markdown("### 🧠 Interpretação")
 
 col1, col2 = st.columns(2)
 with col1:
-    st.success("✅ A análise mostra que o tipo de acesso inicial **impacta significativamente** o tempo de espera para FAV.")
+    st.success(
+        "✅ A análise mostra que o tipo de acesso inicial **impacta significativamente** o tempo de espera para FAV.")
     st.markdown("""
     - Pacientes que iniciam com **Cateter Duplo Lúmen** apresentam, em média, **maior tempo de espera**.
     - A **proporção de casos com mais de 180 dias de espera** também tende a ser maior nesse grupo.
@@ -131,6 +160,6 @@ with col2:
     especialmente na atenção básica e acompanhamento ambulatorial de pacientes com doença renal crônica em estágio avançado.
     """)
 
-# --- Expansor com dados brutos ---
+# --- Dados brutos no final ---
 with st.expander("🔍 Ver primeiros registros do conjunto de dados"):
     st.dataframe(df[['ACESSO_VASCULAR_INICIAL', 'TEMPO_ESPERA_DIAS']].head(20))
