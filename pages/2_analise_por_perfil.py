@@ -58,30 +58,51 @@ if df_filtrado.empty or any(col not in df_filtrado.columns for col in colunas_ne
     st.stop()
 
 # Título da página
-st.title("2. Análise por Perfil Demográfico")
-st.markdown("Visualização do tempo de espera conforme idade, sexo, raça/cor e faixa etária dos pacientes.")
+st.title("👤 Análise por Perfil dos Pacientes")
+st.markdown(
+    """
+    Abaixo estão visualizações do **tempo de espera para a FAV** em relação a características dos pacientes,
+    como faixa etária, sexo e raça/cor. Os gráficos utilizam o formato *boxplot*, que destaca:
+
+    - A **mediana** do tempo de espera (linha central da caixa);
+    - Os **quartis** (Q1 e Q3) que delimitam a caixa (50% central dos dados);
+    - Os **pontos fora da caixa** representam valores mais distantes (possíveis outliers);
+    - Cada ponto no gráfico representa um paciente.
+
+    Use os filtros na barra lateral para ajustar os dados conforme interesse.
+    """
+)
 
 # Faixa etária: slider
 idade_min, idade_max = int(df_filtrado['IDADE'].min()), int(df_filtrado['IDADE'].max())
 idade_range = st.slider(
-    "Idade dos Pacientes",
+    "Faixa de Idade dos Pacientes",
     min_value=idade_min,
     max_value=idade_max,
     value=(idade_min, idade_max)
 )
 
-df_filtrado = df_filtrado[(df_filtrado['IDADE'] >= idade_range[0]) & (df_filtrado['IDADE'] <= idade_range[1])]
+df_filtrado = df_filtrado[
+    (df_filtrado['IDADE'] >= idade_range[0]) &
+    (df_filtrado['IDADE'] <= idade_range[1])
+    ]
 
 # Métricas principais
 col1, col2, col3 = st.columns(3)
-col1.metric("Tempo Médio de Espera", f"{df_filtrado['TEMPO_ESPERA_DIAS'].mean():.0f} dias")
-col2.metric("Número de Pacientes", f"{len(df_filtrado)}")
-col3.metric("Unidades Hospitalares", f"{df_filtrado['COD_UNIDADE_HOSPITALAR'].nunique()}")
+col1.metric("⏳ Tempo Médio de Espera", f"{df_filtrado['TEMPO_ESPERA_DIAS'].mean():.0f} dias")
+col2.metric("👥 Número de Pacientes", f"{len(df_filtrado)}")
+col3.metric("🏥 Unidades Hospitalares", f"{df_filtrado['COD_UNIDADE_HOSPITALAR'].nunique()}")
 
 st.markdown("---")
 
 # Boxplot por faixa etária
 with st.expander("📊 Tempo de Espera por Faixa Etária"):
+    st.markdown(
+        """
+        Este gráfico mostra como o tempo de espera varia entre as diferentes faixas etárias.
+        Pode ajudar a identificar se há grupos etários com tempos sistematicamente maiores ou menores.
+        """
+    )
     fig_faixa = px.box(
         df_filtrado,
         x='FAIXA_ETARIA',
@@ -94,6 +115,12 @@ with st.expander("📊 Tempo de Espera por Faixa Etária"):
 
 # Boxplot por sexo
 with st.expander("📊 Tempo de Espera por Sexo"):
+    st.markdown(
+        """
+        Este gráfico compara o tempo de espera entre pacientes do sexo masculino e feminino.
+        Útil para verificar se há diferenças de acesso associadas ao sexo.
+        """
+    )
     fig_sexo = px.box(
         df_filtrado,
         x='SEXO',
@@ -106,6 +133,12 @@ with st.expander("📊 Tempo de Espera por Sexo"):
 
 # Boxplot por raça/cor
 with st.expander("📊 Tempo de Espera por Raça/Cor"):
+    st.markdown(
+        """
+        Este gráfico apresenta a distribuição do tempo de espera por categoria de raça/cor.
+        Pode ser útil para identificar desigualdades ou padrões de acesso entre grupos.
+        """
+    )
     fig_raca = px.box(
         df_filtrado,
         x='RACA_COR',
