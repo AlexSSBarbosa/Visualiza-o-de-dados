@@ -8,12 +8,12 @@ st.set_page_config(
     layout="wide"
 )
 
-st.sidebar.header("Filtros")
+st.sidebar.header("🎛️ Filtros")
 
 # Carregar dados e opções iniciais
 df, opcoes_acesso, anos_disponiveis, meses_disponiveis = load_and_filter_data()
 
-# Filtros na sidebar
+# Filtros interativos
 filtro_acesso = st.sidebar.multiselect(
     "Tipo de Acesso Vascular",
     options=opcoes_acesso,
@@ -21,7 +21,7 @@ filtro_acesso = st.sidebar.multiselect(
 )
 
 filtro_cronico = st.sidebar.checkbox(
-    "Mostrar somente pacientes crônicos (≥ 3 meses de tratamento)",
+    "Mostrar apenas pacientes crônicos (≥ 3 meses em diálise)",
     value=True
 )
 
@@ -38,7 +38,7 @@ meses_selecionados = st.sidebar.multiselect(
     default=meses_disponiveis
 )
 
-# Aplicar filtro nos dados, agora passando filtro_cronico corretamente
+# Aplicar filtros nos dados
 df_filtrado, _, _, _ = load_and_filter_data(
     filtro_acesso_default=False,
     filtro_cronico_default=filtro_cronico,
@@ -47,9 +47,9 @@ df_filtrado, _, _, _ = load_and_filter_data(
     meses_selecionados=meses_selecionados
 )
 
-# Verificar se df_filtrado é vazio ou falta colunas esperadas para evitar erros
+# Segurança: evitar erros com dataframe vazio
 if df_filtrado.empty or 'TEMPO_ESPERA_DIAS' not in df_filtrado.columns:
-    st.warning("Nenhum dado disponível para os filtros selecionados.")
+    st.warning("Nenhum dado encontrado para os filtros selecionados.")
     st.stop()
 
 # Estatísticas principais
@@ -61,37 +61,46 @@ percentil_25 = df_filtrado['TEMPO_ESPERA_DIAS'].quantile(0.25)
 percentil_75 = df_filtrado['TEMPO_ESPERA_DIAS'].quantile(0.75)
 prop_acima_180 = (df_filtrado['TEMPO_ESPERA_DIAS'] > 180).mean() * 100
 
-# Título e descrição
-st.title("1. Visão Geral do Tempo de Espera para FAV")
-st.markdown("Análise do tempo entre o início da diálise e confecção da fístula arteriovenosa em Porto Alegre (2015-2024).")
+# Título e introdução
+st.title("1. Visão Geral do Tempo de Espera para Fístula Arteriovenosa (FAV)")
+st.markdown(
+    """
+    Esta seção apresenta uma visão geral do **tempo entre o início da diálise e a confecção da fístula arteriovenosa (FAV)**, 
+    principal acesso vascular para tratamento dialítico crônico, em pacientes atendidos em Porto Alegre entre 2015 e 2024.
+    """
+)
 
 # Métricas principais
 col1, col2, col3 = st.columns(3)
-col1.metric("Tempo Médio de Espera", f"{tempo_medio:.0f} dias")
-col2.metric("Número de Pacientes", f"{n_pacientes}")
-col3.metric("Unidades Hospitalares", f"{df_filtrado['COD_UNIDADE_HOSPITALAR'].nunique()}")
+col1.metric("⏱️ Tempo Médio de Espera", f"{tempo_medio:.0f} dias")
+col2.metric("👥 Pacientes Incluídos", f"{n_pacientes}")
+col3.metric("🏥 Unidades Hospitalares", f"{df_filtrado['COD_UNIDADE_HOSPITALAR'].nunique()}")
 
-st.markdown("---")
+st.markdown("----")
 
-# Estatísticas adicionais
-st.markdown(f"""
-**Desvio padrão:** {std_desvio:.1f} dias  
-**Mediana:** {tempo_median:.0f} dias  
-**Percentil 25:** {percentil_25:.0f} dias | **Percentil 75:** {percentil_75:.0f} dias  
+# Estatísticas complementares
+st.markdown(
+    f"""
+    **Medidas de dispersão e distribuição:**
 
-**Proporção com espera > 6 meses:** {prop_acima_180:.1f}%  
+    - **Desvio padrão:** {std_desvio:.1f} dias  
+    - **Mediana:** {tempo_median:.0f} dias  
+    - **Percentil 25:** {percentil_25:.0f} dias  
+    - **Percentil 75:** {percentil_75:.0f} dias  
+    - **Proporção com espera > 6 meses (180 dias):** {prop_acima_180:.1f}%
 
----
-*Nota: o histograma abaixo considera tempos entre 0 e 730 dias para melhor visualização.*
-""")
+    ---
+    *Observação: os gráficos consideram apenas valores entre 0 e 730 dias para melhor visualização.*
+    """
+)
 
-# Histograma do tempo de espera
+# Histograma com boxplot
 fig = px.histogram(
     df_filtrado,
     x='TEMPO_ESPERA_DIAS',
     nbins=50,
     marginal="box",
-    title="Distribuição do Tempo de Espera para Confecção da FAV (dias)",
+    title="Distribuição do Tempo de Espera para Confecção da FAV",
     labels={'TEMPO_ESPERA_DIAS': 'Tempo de Espera (dias)'}
 )
 fig.update_layout(
@@ -101,48 +110,60 @@ fig.update_layout(
 )
 st.plotly_chart(fig, use_container_width=True)
 
-# Boxplot comparativo por sexo
-with st.expander("⏳ Comparação do Tempo de Espera por Sexo"):
+# Boxplot por Sexo
+with st.expander("📊 Tempo de Espera por Sexo"):
+    st.markdown(
+        """
+        O boxplot abaixo mostra a distribuição do tempo de espera entre os sexos.  
+        Avalia se há variação ou desigualdade na linha de cuidado entre homens e mulheres.
+        """
+    )
     fig_sexo = px.box(
         df_filtrado,
         x='SEXO',
         y='TEMPO_ESPERA_DIAS',
         points="all",
         labels={'TEMPO_ESPERA_DIAS': 'Tempo de Espera (dias)', 'SEXO': 'Sexo'},
-        title="Tempo de Espera para Confecção da FAV por Sexo"
+        title="Tempo de Espera por Sexo"
     )
     st.plotly_chart(fig_sexo, use_container_width=True)
 
-# Boxplot comparativo por raça/cor
-with st.expander("⏳ Comparação do Tempo de Espera por Raça/Cor"):
+# Boxplot por Raça/Cor
+with st.expander("📊 Tempo de Espera por Raça/Cor"):
+    st.markdown(
+        """
+        Este gráfico permite verificar diferenças no tempo de espera por categorias de raça/cor informadas no sistema.  
+        Pode ser útil na análise de equidade no acesso ao procedimento.
+        """
+    )
     fig_raca = px.box(
         df_filtrado,
         x='RACA_COR',
         y='TEMPO_ESPERA_DIAS',
         points="all",
         labels={'TEMPO_ESPERA_DIAS': 'Tempo de Espera (dias)', 'RACA_COR': 'Raça/Cor'},
-        title="Tempo de Espera para Confecção da FAV por Raça/Cor"
+        title="Tempo de Espera por Raça/Cor"
     )
     st.plotly_chart(fig_raca, use_container_width=True)
 
 # Insights automáticos
-st.markdown("---")
-st.subheader("💡 Insights automáticos")
+st.markdown("----")
+st.subheader("📌 Insights Automáticos")
 
 if tempo_medio > 300:
-    st.warning("⚠️ O tempo médio de espera está acima de 300 dias, indicando possível atraso no acesso vascular.")
+    st.warning("⚠️ Tempo médio de espera superior a 300 dias pode indicar atraso relevante na realização da FAV.")
 else:
-    st.success("✅ O tempo médio de espera está dentro do esperado para este período.")
+    st.success("✅ Tempo médio de espera dentro de parâmetros razoáveis.")
 
 if prop_acima_180 > 30:
-    st.warning(f"⚠️ Alta proporção ({prop_acima_180:.1f}%) de pacientes com espera superior a 6 meses.")
+    st.warning(f"⚠️ {prop_acima_180:.1f}% dos pacientes aguardam mais de 6 meses — atenção à gestão da fila cirúrgica.")
 else:
-    st.info(f"ℹ️ Proporção de pacientes com espera superior a 6 meses está em {prop_acima_180:.1f}%.")
+    st.info(f"ℹ️ Apenas {prop_acima_180:.1f}% dos pacientes esperam mais de 6 meses.")
 
 if tempo_median > 300:
-    st.info("ℹ️ A mediana do tempo de espera sugere que metade dos pacientes esperam mais de 300 dias.")
+    st.info("📊 A mediana indica que pelo menos metade dos pacientes esperam mais de 300 dias.")
 
-# Exportação de dados filtrados
+# Exportação de dados
 st.markdown("---")
 with st.expander("📥 Exportar dados filtrados"):
     csv = df_filtrado.to_csv(index=False).encode('utf-8')
@@ -155,10 +176,16 @@ with st.expander("📥 Exportar dados filtrados"):
 
 # Explicação final
 st.markdown("---")
-st.markdown("""
-**Sobre esta análise:**  
-Este dashboard apresenta uma análise temporal e demográfica do tempo de espera para a confecção da Fístula Arteriovenosa (FAV) em pacientes em diálise crônica em Porto Alegre entre 2015 e 2024.  
-A fístula arteriovenosa é o acesso vascular recomendado para diálise, pois apresenta menor risco de infecções e complicações. O tempo de espera adequado para sua confecção impacta diretamente na qualidade do tratamento e nos resultados clínicos.  
-Os filtros permitem segmentar a análise por tipo de acesso vascular, período, sexo, raça/cor e condição crônica.  
-Use os gráficos para visualizar a distribuição e diferenças populacionais no tempo de espera.
-""")
+st.markdown(
+    """
+    ### ℹ️ Sobre esta Análise
+
+    Este painel fornece uma visão descritiva e exploratória do tempo de espera para confecção da Fístula Arteriovenosa (FAV),
+    que é o acesso vascular preferencial para pacientes em diálise crônica. O atraso na realização da FAV pode comprometer
+    a segurança do tratamento, aumentar o uso de cateteres e afetar negativamente os desfechos clínicos.
+
+    Os dados apresentados são extraídos de registros administrativos (APAC-SIA/SUS) e filtrados por características clínicas, temporais e sociodemográficas.
+
+    Use os filtros laterais para refinar a análise e explorar padrões por ano, mês, condição clínica e perfil populacional.
+    """
+)
